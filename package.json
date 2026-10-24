@@ -1,0 +1,50 @@
+{
+  "name": "@twkrash/spotify-library-manager",
+  "version": "0.1.0",
+  "description": "Analyze and safely manage your Spotify saved library locally.",
+  "license": "MIT",
+  "keywords": ["spotify", "saved-library", "music-analytics", "duplicate-cleanup", "local-first"],
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "bin": {
+    "spotify-library-manager": "dist/http/server.js"
+  },
+  "files": [
+    "dist",
+    "dashboard.html",
+    "public/dashboard.js",
+    ".env.example",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "predev": "npm run build:client",
+    "dev": "tsx watch src/http/server.ts",
+    "build": "tsc -p tsconfig.json && tsc -p tsconfig.client.json && npm run build:client",
+    "build:client": "esbuild src/client/dashboard.ts --bundle --platform=browser --target=es2022 --outfile=public/dashboard.js",
+    "start": "node dist/http/server.js",
+    "test": "tsx --test",
+    "check": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.test.json && tsc --noEmit -p tsconfig.client.json",
+    "package:smoke": "node scripts/package-smoke.mjs",
+    "prepack": "npm run build"
+  },
+  "dependencies": {
+    "@toon-format/cli": "^4.4.0",
+    "dotenv": "^17.2.3",
+    "fastify": "^5.6.1",
+    "oauth4webapi": "^3.8.2",
+    "unicode-case-folding": "^1.1.2"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.0",
+    "esbuild": "^0.25.11",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3"
+  }
+}

@@ -1,0 +1,166 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.metadata.outputs.version }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - run: npm test
+      - run: npm run build
+      - run: npm run package:smoke
+      - name: Verify tag and extract changelog
+        id: metadata
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync, writeFileSync } from "node:fs";
+
+          const { version } = JSON.parse(
+            readFileSync("package.json", "utf8"),
+          );
+          const tag = process.env.GITHUB_REF_NAME;
+          if (tag !== `v${version}`) {
+            throw new Error(
+              `Tag ${tag} does not match package version ${version}.`,
+            );
+          }
+
+          const changelog = readFileSync("CHANGELOG.md", "utf8");
+          const heading = `## [${version}]`;
+          const start = changelog.indexOf(heading);
+          if (start < 0) {
+            throw new Error(`CHANGELOG.md has no ${heading} section.`);
+          }
+          const contentStart = start + heading.length;
+          const nextHeading = changelog.indexOf("\n## [", contentStart);
+          const end = nextHeading < 0 ? undefined : nextHeading;
+          const notes = changelog.slice(contentStart, end).trim();
+          if (!notes) {
+            throw new Error(`CHANGELOG.md section ${heading} is empty.`);
+          }
+
+          writeFileSync("release-notes.md", `${notes}\n`);
+          writeFileSync(
+            process.env.GITHUB_OUTPUT,
+            `version=${version}\n`,
+            { flag: "a" },
+          );
+          NODE
+      - name: Pack and inspect release artifact
+        env:
+          RUNNER_TEMP: ${{ runner.temp }}
+          VERSION: ${{ steps.metadata.outputs.version }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/package"
+          npm pack --json --pack-destination "$RUNNER_TEMP/package" \\
+            > "$RUNNER_TEMP/pack.json"
+          PACK_JSON="$RUNNER_TEMP/pack.json" \\
+          PACKAGE_DIR="$RUNNER_TEMP/package" \\
+          VERSION="$VERSION" node --input-type=module <<'NODE'
+          import assert from "node:assert/strict";
+          import { existsSync, readFileSync } from "node:fs";
+          import { join } from "node:path";
+
+          const [pkg] = JSON.parse(readFileSync(process.env.PACK_JSON, "utf8"));
+          assert.equal(pkg.name, "@twkrash/spotify-library-manager");
+          assert.equal(pkg.version, process.env.VERSION);
+          const files = new Set(pkg.files.map(({ path }) => path));
+          for (const path of [
+            "dist/http/server.js",
+            "dashboard.html",
+            "public/dashboard.js",
+            ".env.example",
+            "README.md",
+            "LICENSE",
+            "CHANGELOG.md",
+          ]) assert(files.has(path), `Packed artifact is missing ${path}.`);
+
+          const forbidden = [...files].filter((path) =>
+            path === ".env" ||
+            (path.startsWith(".env.") && path !== ".env.example") ||
+            path === "results" || path.startsWith("results/") ||
+            path === "tests" || path.startsWith("tests/") ||
+            path === "src" || path.startsWith("src/") ||
+            path.startsWith(".venv/") || path.startsWith(".ruff_cache/") ||
+            path.endsWith(".py") || path.endsWith(".pyc")
+          );
+          assert.deepEqual(
+            forbidden,
+            [],
+            "Packed artifact contains local data or development files.",
+          );
+          assert(
+            existsSync(join(process.env.PACKAGE_DIR, pkg.filename)),
+            "Packed tarball is missing.",
+          );
+          console.log(`Qualified ${pkg.name}@${pkg.version}.`);
+          NODE
+          mkdir -p release-artifacts
+          cp "$RUNNER_TEMP/package/"*.tgz release-artifacts/
+          cp release-notes.md release-artifacts/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-assets
+          path: release-artifacts/*
+          if-no-files-found: error
+          retention-days: 1
+
+  publish:
+    needs: qualify
+    runs-on: ubuntu-latest
+    environment:
+      name: npm-publish
+      url: https://www.npmjs.com/package/@twkrash/spotify-library-manager
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - run: npm install --global npm@11.19.1
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-assets
+          path: release-artifacts
+      - run: >-
+          npm publish release-artifacts/*.tgz --access public --provenance
+          --registry=https://registry.npmjs.org/
+
+  github-release:
+    needs:
+      - qualify
+      - publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-assets
+          path: release-artifacts
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" release-artifacts/*.tgz \
+            --verify-tag \
+            --title "$GITHUB_REF_NAME" \
+            --notes-file release-artifacts/release-notes.md

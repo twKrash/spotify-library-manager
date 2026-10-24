@@ -1,0 +1,9 @@
+# Approved Duplicate Cleanup Design
+
+**Intent:** Add interactive duplicate cleanup and restore modes to the existing `main.py` entry point. Cleanup must use the exporter’s stored library report rather than ingesting Spotify a second time.
+
+**Approach:** Normal `uv run python main.py` export writes each saved track's `added_at` into `results/library.json`. `uv run python main.py --cleanup` reads that artifact, maps the duplicate groups to exact Spotify IDs, keeps the newest-added copy, and groups removals by each group's first credited artist. Artists sort by total extra copies. For each artist, `y` approves its displayed removals, `n` leaves that artist and continues, and `s` stops later prompts while retaining earlier approvals. The report timestamp and exact keep/remove records are displayed. Cleanup performs no library fetch or plan recheck.
+
+**Safety:** Cleanup requires an interactive terminal. Missing or invalid report dates/IDs, inconsistent group mappings, repeated IDs, or tied newest timestamps abort before OAuth or deletion. If dates are absent, the user must refresh with normal `main.py`; cleanup never silently ingests. A local manifest is written before the first removal and updated after each successful batch of at most 40 IDs. The report is a snapshot, so the user must refresh it immediately before cleanup; Spotify cannot condition deletion on an unchanged library. `uv run python main.py --restore MANIFEST` compares the manifest with a current library read, previews only missing tracks, requires exact `RESTORE <count> TRACKS` approval, and records successful additions. Re-saving restores membership, not the original saved date.
+
+**Non-goals:** No unattended mode, no automatic audio-quality judgment, no exact `added_at` rollback, and no Spotify writes during implementation or testing.
