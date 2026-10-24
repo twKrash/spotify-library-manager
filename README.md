@@ -6,10 +6,10 @@ Spotify Library Manager runs locally on Node.js 24+ and uses Spotify's user-auth
 
 ## Run the published app
 
-Requirements: Node.js 24+ and a Spotify developer application with a client ID and client secret.
+Requirements: Node.js 24+ and a Spotify developer application. Spotify requires the owner of a Development Mode app to have an active Premium subscription ([Development Mode requirements](https://developer.spotify.com/documentation/web-api/concepts/quota-modes)).
 
-1. In the Spotify Developer Dashboard, set the redirect URI to `http://127.0.0.1:3000/callback`.
-2. In the directory where you want local results stored, create a private `.env` file:
+1. Sign in to the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard) with the Spotify account that will own the app. Click **Create app**, enter a name and description, select **Web API**, register `http://127.0.0.1:3000/callback` as a Redirect URI, accept the Developer Terms, and create the app ([Spotify's getting started guide](https://developer.spotify.com/documentation/web-api/tutorials/getting-started)).
+2. Open the app's settings and copy its **Client ID** and **Client Secret**. In the directory where you want local results stored, create a private `.env` file and set them there:
    ```dotenv
    SPOTIFY_CLIENT_ID=your-spotify-client-id
    SPOTIFY_CLIENT_SECRET=your-spotify-client-secret
@@ -17,6 +17,7 @@ Requirements: Node.js 24+ and a Spotify developer application with a client ID a
    PORT=3000
    RESULTS_DIR=results
    ```
+   The `SPOTIFY_REDIRECT_URI` value must exactly match the URI registered in the dashboard.
 3. Run `npx @twkrash/spotify-library-manager` and open `http://127.0.0.1:3000`.
 4. Connect Spotify and sync the library.
 
