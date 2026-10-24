@@ -1,6 +1,6 @@
 {
   "name": "@twkrash/spotify-library-manager",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Analyze and safely manage your Spotify saved library locally.",
   "license": "MIT",
   "keywords": ["spotify", "saved-library", "music-analytics", "duplicate-cleanup", "local-first"],
