@@ -36,19 +36,26 @@ the owner of a Development Mode app to have an active Premium subscription
    API**, register `http://127.0.0.1:3000/callback` as a Redirect URI, accept the
    Developer Terms, and create the app ([Spotify's getting started
    guide](https://developer.spotify.com/documentation/web-api/tutorials/getting-started)).
-2. In the app settings, copy the **Client ID** and **Client Secret**. In the
-   directory where you want local results stored, create a private `.env` file:
-   ```dotenv
-   SPOTIFY_CLIENT_ID=your-spotify-client-id
-   SPOTIFY_CLIENT_SECRET=your-spotify-client-secret
-   SPOTIFY_REDIRECT_URI=http://127.0.0.1:3000/callback
-   PORT=3000
-   RESULTS_DIR=results
+   Copy the **Client ID** and **Client Secret** from its settings.
+2. Install and run the CLI:
+   ```sh
+   npm install @twkrash/spotify-library-manager
+   npx spotify-library-manager
    ```
-   `SPOTIFY_REDIRECT_URI` must exactly match the URI registered in the dashboard.
-3. After the package is published, run `npx @twkrash/spotify-library-manager`
-   and open <http://127.0.0.1:3000>.
-4. Connect Spotify and sync the library.
+   On the first interactive run, the CLI prompts for missing credentials and
+   stores them in `~/.config/liked-list/config.json`. The directory is created
+   with mode `0700` and the file with mode `0600`. npm installation itself does
+   not create files. The generated JSON uses `schemaVersion`, `clientId`,
+   `clientSecret`, `redirectUri`, `port`, and `resultsDir`; edit it to change
+   saved settings. The default redirect URI must exactly match the URI
+   registered in the dashboard.
+3. Open <http://127.0.0.1:3000>, connect Spotify, and sync the library.
+
+The CLI also supports environment variables and a current-directory `.env` file.
+Their precedence is process environment > `.env` > user config. If credentials
+are missing in a non-interactive run, set `SPOTIFY_CLIENT_ID` and
+`SPOTIFY_CLIENT_SECRET` (and `SPOTIFY_REDIRECT_URI` if using a non-default URI)
+in the environment; the CLI exits with setup guidance instead of prompting.
 
 The app requests Spotify permissions for saved-library reads and changes, top
 tracks and artists, and recently played items.
@@ -84,12 +91,15 @@ submitting changes.
 
 ## Local data and licensing
 
-`RESULTS_DIR` defaults to `results/` and stores `library.json`, the compact
-`library.toon` export, a self-contained read-only `index.html` snapshot, and
-recoverable `operation-*.json` manifests. The Spotify refresh token remains at
-`~/.config/liked-list/tokens.json` for compatibility with existing
-installations. These files are local-only; do not commit Spotify data or
-credentials.
+When `RESULTS_DIR` is not set in the environment, `.env`, or user config, it
+defaults to the absolute `~/.config/liked-list/` directory, independent of the
+current working directory. It stores `library.json`, the compact `library.toon`
+export, a self-contained read-only `index.html` snapshot, and recoverable
+`operation-*.json` manifests alongside the app config and refresh token. Set
+`RESULTS_DIR` to use a custom location; relative overrides remain relative to
+the current working directory. Existing results directories are not moved or
+deleted automatically. These files are local-only; do not commit Spotify data
+or credentials.
 
 The source code is licensed under the MIT License (see `LICENSE`). Spotify
 and its marks belong to Spotify AB.

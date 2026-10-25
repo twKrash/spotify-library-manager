@@ -88,7 +88,8 @@ test("library mutations use the current endpoint, bearer auth, and at most 40 tr
   assert.equal(requests.length, 2);
 });
 
-test("saved-track pagination rejects malformed pages and later-page failures", async () => {
+test("saved-track pagination rejects malformed pages and later-page failures", async (t) => {
+  t.mock.method(console, "error", () => {});
   const malformed = new SpotifyHttpAdapter(token, async () => json({ items: "not-an-array", next: null }));
   await assert.rejects(malformed.listSavedTracks(), /invalid saved tracks items/);
 
@@ -103,13 +104,35 @@ test("saved-track pagination rejects malformed pages and later-page failures", a
   assert.equal(requestCount, 2);
 });
 
-test("Spotify API errors do not leak response bodies or bearer tokens", async () => {
-  const adapter = new SpotifyHttpAdapter(token, async () => new Response("access-secret-private error", { status: 500 }));
+test("Spotify API failure logs status and path without leaking response bodies or bearer tokens", async (t) => {
+  const errorLog = t.mock.method(console, "error", () => {});
+  const adapter = new SpotifyHttpAdapter(token, async () => new Response("private provider response", { status: 403 }));
 
   await assert.rejects(adapter.listSavedTracks(), (error: unknown) => {
     assert.ok(error instanceof Error);
-    assert.match(error.message, /Spotify API request failed/);
-    assert.doesNotMatch(error.message, /access-secret|private error/);
+    assert.match(error.message, /Spotify API request failed \(403\)/);
+    assert.doesNotMatch(error.message, /access-secret|private provider response/);
     return true;
   });
+
+  assert.equal(errorLog.mock.callCount(), 1);
+  const logged = JSON.stringify(errorLog.mock.calls[0]?.arguments);
+  assert.match(logged, /GET/);
+  assert.match(logged, /\/v1\/me\/tracks/);
+  assert.match(logged, /403/);
+  assert.doesNotMatch(logged, /access-secret|private provider response/);
+});
+
+test("Spotify API transport failure logs no response without exposing the cause", async (t) => {
+  const errorLog = t.mock.method(console, "error", () => {});
+  const adapter = new SpotifyHttpAdapter(token, async () => { throw new Error("private network error"); });
+
+  await assert.rejects(adapter.listSavedTracks(), /Unable to reach the Spotify API/);
+
+  assert.equal(errorLog.mock.callCount(), 1);
+  const logged = JSON.stringify(errorLog.mock.calls[0]?.arguments);
+  assert.match(logged, /GET/);
+  assert.match(logged, /\/v1\/me\/tracks/);
+  assert.match(logged, /no HTTP response/);
+  assert.doesNotMatch(logged, /access-secret|private network error/);
 });

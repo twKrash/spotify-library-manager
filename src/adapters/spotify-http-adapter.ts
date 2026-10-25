@@ -123,9 +123,13 @@ export class SpotifyHttpAdapter implements SpotifyApiPort {
         redirect: "error",
       });
     } catch (error) {
+      console.error(`Spotify API request failed: ${method} ${url.pathname} received no HTTP response.`);
       throw new SpotifyApiError("Unable to reach the Spotify API.", undefined, { cause: error });
     }
-    if (!response.ok) throw new SpotifyApiError(`Spotify API request failed (${response.status}).`, response.status);
+    if (!response.ok) {
+      console.error(`Spotify API request failed: ${method} ${url.pathname} returned HTTP ${response.status}.`);
+      throw new SpotifyApiError(`Spotify API request failed (${response.status}).`, response.status);
+    }
     return response;
   }
 

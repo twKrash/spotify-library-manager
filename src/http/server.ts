@@ -14,6 +14,7 @@ import { OperationGate } from "../application/operation-gate.js";
 import { LibraryService } from "../application/library-service.js";
 import { RemovalService } from "../application/removal-service.js";
 import { ConfigError, loadConfig, loadEnvironment, type AppConfig } from "../config.js";
+import { ensureInteractiveConfig } from "../config-setup.js";
 import { registerRoutes, type DashboardAssets, type HttpServices } from "./routes.js";
 
 const dashboardHtmlPath = fileURLToPath(new URL("../../dashboard.html", import.meta.url));
@@ -27,6 +28,8 @@ export function createServer(config: AppConfig, services: HttpServices, assets: 
 }
 
 export async function startServer(): Promise<FastifyInstance> {
+  loadEnvironment();
+  await ensureInteractiveConfig(process.env);
   loadEnvironment();
   const config = loadConfig();
   const snapshots = new FileSnapshotStore(config.resultsDir);
