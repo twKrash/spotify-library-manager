@@ -177,6 +177,7 @@ jobs:
           TAG: ${{ needs.qualify.outputs.tag }}
         run: |
           gh release create "$TAG" release-artifacts/*.tgz \
+            --repo "$GITHUB_REPOSITORY" \
             --verify-tag \
             --title "$TAG" \
             --notes-file release-artifacts/release-notes.md
