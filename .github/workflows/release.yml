@@ -156,7 +156,7 @@ jobs:
           name: release-assets
           path: release-artifacts
       - run: >-
-          npm publish release-artifacts/*.tgz --access public --provenance
+          npm publish ./release-artifacts/*.tgz --access public --provenance
           --registry=https://registry.npmjs.org/
 
   github-release:
