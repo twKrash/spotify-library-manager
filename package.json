@@ -1,6 +1,6 @@
 {
   "name": "@twkrash/spotify-library-manager",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Analyze and safely manage your Spotify saved library locally.",
   "license": "MIT",
   "repository": {
