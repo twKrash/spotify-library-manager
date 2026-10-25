@@ -4,6 +4,16 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to publish, e.g. v1.0.1
+        required: true
+        type: string
+
+concurrency:
+  group: release-${{ github.event.inputs.tag || github.ref_name }}
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -14,9 +24,12 @@ jobs:
     permissions:
       contents: read
     outputs:
+      tag: ${{ steps.metadata.outputs.tag }}
       version: ${{ steps.metadata.outputs.version }}
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
       - uses: actions/setup-node@v5
         with:
           node-version: 24
@@ -28,6 +41,8 @@ jobs:
       - run: npm run package:smoke
       - name: Verify tag and extract changelog
         id: metadata
+        env:
+          TAG: ${{ github.event.inputs.tag || github.ref_name }}
         run: |
           node --input-type=module <<'NODE'
           import { readFileSync, writeFileSync } from "node:fs";
@@ -35,7 +50,7 @@ jobs:
           const { version } = JSON.parse(
             readFileSync("package.json", "utf8"),
           );
-          const tag = process.env.GITHUB_REF_NAME;
+          const tag = process.env.TAG;
           if (tag !== `v${version}`) {
             throw new Error(
               `Tag ${tag} does not match package version ${version}.`,
@@ -59,7 +74,7 @@ jobs:
           writeFileSync("release-notes.md", `${notes}\n`);
           writeFileSync(
             process.env.GITHUB_OUTPUT,
-            `version=${version}\n`,
+            `tag=${tag}\nversion=${version}\n`,
             { flag: "a" },
           );
           NODE
@@ -69,10 +84,10 @@ jobs:
           VERSION: ${{ steps.metadata.outputs.version }}
         run: |
           mkdir -p "$RUNNER_TEMP/package"
-          npm pack --json --pack-destination "$RUNNER_TEMP/package" \\
+          npm pack --json --pack-destination "$RUNNER_TEMP/package" \
             > "$RUNNER_TEMP/pack.json"
-          PACK_JSON="$RUNNER_TEMP/pack.json" \\
-          PACKAGE_DIR="$RUNNER_TEMP/package" \\
+          PACK_JSON="$RUNNER_TEMP/pack.json" \
+          PACKAGE_DIR="$RUNNER_TEMP/package" \
           VERSION="$VERSION" node --input-type=module <<'NODE'
           import assert from "node:assert/strict";
           import { existsSync, readFileSync } from "node:fs";
@@ -159,8 +174,9 @@ jobs:
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.qualify.outputs.tag }}
         run: |
-          gh release create "$GITHUB_REF_NAME" release-artifacts/*.tgz \
+          gh release create "$TAG" release-artifacts/*.tgz \
             --verify-tag \
-            --title "$GITHUB_REF_NAME" \
+            --title "$TAG" \
             --notes-file release-artifacts/release-notes.md
